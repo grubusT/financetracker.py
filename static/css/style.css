@@ -1,0 +1,206 @@
+/* Custom styling for Expense Tracker */
+
+body {
+    background-color: white;
+    color: black;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.container {
+    flex: 1;
+}
+
+.footer {
+    margin-top: auto;
+    background-color: rgba(10, 10, 15, 0.8) !important;
+    color: #e0e0e0;
+}
+
+.card {
+    background-color: white;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.card-header {
+    background-color: #212529 !important;
+    color: white;
+}
+
+.table {
+    margin-bottom: 0;
+    color: black;
+}
+
+.table-light {
+    background-color: rgba(30, 20, 40, 0.7) !important;
+    color: #e0e0e0;
+}
+
+.table-dark {
+    background-color: #212529 !important;
+    color: white;
+}
+
+.navbar {
+    background-color: #212529 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-dark .navbar-brand,
+.navbar-dark .nav-link {
+    color: white !important;
+}
+
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.5rem;
+}
+
+.badge {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.35em 0.65em;
+}
+
+/* Category badge colors */
+.badge.bg-food {
+    background-color: #3498db !important;
+    color: white;
+}
+
+.badge.bg-transportation {
+    background-color: #2ecc71 !important;
+    color: white;
+}
+
+.badge.bg-housing {
+    background-color: #9b59b6 !important;
+    color: white;
+}
+
+.badge.bg-entertainment {
+    background-color: #e74c3c !important;
+    color: white;
+}
+
+.badge.bg-utilities {
+    background-color: #f39c12 !important;
+    color: white;
+}
+
+.badge.bg-other {
+    background-color: #1abc9c !important;
+    color: white;
+}
+
+.form-floating>.form-control:focus~label,
+.form-floating>.form-control:not(:placeholder-shown)~label,
+.form-floating>.form-select~label {
+    color: #212529;
+}
+
+.form-floating>.form-control:focus,
+.form-floating>.form-control:not(:placeholder-shown),
+.form-floating>.form-select {
+    border-color: #212529;
+    background-color: white;
+    color: #212529;
+}
+
+.form-control, .form-select {
+    background-color: white;
+    border: 1px solid #212529;
+    color: #212529;
+}
+
+.form-control:focus, .form-select:focus {
+    background-color: white;
+    border-color: #212529;
+    box-shadow: 0 0 0 0.25rem rgba(0, 0, 0, 0.1);
+    color: #212529;
+}
+
+.form-label {
+    color: #212529;
+}
+
+.btn-primary {
+    background-color: #212529;
+    border-color: #212529;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #000000;
+    border-color: #000000;
+}
+
+.btn-outline-dark {
+    color: #212529;
+    border-color: #212529;
+}
+
+.btn-outline-dark:hover {
+    background-color: #212529;
+    color: white;
+}
+
+.btn-secondary {
+    background-color: #2d0a4d;
+    border-color: #2d0a4d;
+}
+
+.btn-secondary:hover {
+    background-color: #4b1a7a;
+    border-color: #4b1a7a;
+}
+
+/* Table styling */
+.table-hover tbody tr:hover {
+    background-color: rgba(138, 43, 226, 0.1);
+}
+
+/* Modal styling */
+.modal-content {
+    background-color: white;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    background-color: #212529;
+    color: white;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #0a0a0f;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #4b1a7a 0%, #7b3cb7 100%);
+    border-radius: 4px;
+}
+
+/* Chart styling */
+canvas {
+    filter: drop-shadow(0px 0px 5px rgba(138, 43, 226, 0.3));
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    h1 {
+        font-size: 1.8rem;
+    }
+    
+    .display-4 {
+        font-size: 2.5rem;
+    }
+} 

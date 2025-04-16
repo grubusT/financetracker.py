@@ -1,0 +1,226 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Expense Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="mb-4">Dashboard</h1>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <!-- Total Expenses Card -->
+    <div class="col-md-4 mb-3">
+        <div class="card h-100 border-dark">
+            <div class="card-body text-center">
+                <h5 class="card-title text-dark">Total Expenses</h5>
+                <h2 class="display-4">${{ '%.2f'|format(total) }}</h2>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Add Expense Card -->
+    <div class="col-md-8 mb-3">
+        <div class="card h-100">
+            <div class="card-header bg-dark text-white">
+                <h5 class="card-title mb-0">Add New Expense</h5>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('add_expense') }}" method="post">
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <div class="form-floating mb-3">
+                                <input type="number" class="form-control" id="amount" name="amount" placeholder="0.00" step="0.01" min="0" required>
+                                <label for="amount">Amount ($)</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-floating mb-3">
+                                <select class="form-select" id="category" name="category" required>
+                                    <option value="" selected disabled>Select a category</option>
+                                    {% for category in categories %}
+                                    <option value="{{ category }}">{{ category }}</option>
+                                    {% endfor %}
+                                </select>
+                                <label for="category">Category</label>
+                            </div>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="form-floating mb-3">
+                                <input type="text" class="form-control" id="description" name="description" placeholder="Description">
+                                <label for="description">Description (Optional)</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Add Expense</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <!-- Expense Breakdown -->
+    <div class="col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header bg-dark text-white">
+                <h5 class="card-title mb-0">Expense Breakdown</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Expenses -->
+    <div class="col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header bg-dark text-white">
+                <h5 class="card-title mb-0">Recent Expenses</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Category</th>
+                                <th>Amount</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentExpenses">
+                            <!-- Will be populated with JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer bg-white text-center">
+                <a href="{{ url_for('expenses') }}" class="btn btn-outline-dark btn-sm">View All Expenses</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Fetch recent expenses
+    fetch('/api/expenses')
+        .then(response => response.json())
+        .then(data => {
+            const recentExpenses = document.getElementById('recentExpenses');
+            
+            // Sort by date descending and get only 5 most recent
+            const sortedExpenses = data.sort((a, b) => {
+                return new Date(b.date) - new Date(a.date);
+            }).slice(0, 5);
+            
+            // Add rows
+            if (sortedExpenses.length === 0) {
+                recentExpenses.innerHTML = '<tr><td colspan="4" class="text-center">No expenses recorded yet</td></tr>';
+            } else {
+                sortedExpenses.forEach(expense => {
+                    const row = document.createElement('tr');
+                    
+                    const dateCell = document.createElement('td');
+                    const date = new Date(expense.date);
+                    dateCell.textContent = date.toLocaleDateString();
+                    
+                    const categoryCell = document.createElement('td');
+                    const badgeClass = `badge bg-${expense.category.toLowerCase()}`;
+                    categoryCell.innerHTML = `<span class="${badgeClass}">${expense.category}</span>`;
+                    
+                    const amountCell = document.createElement('td');
+                    amountCell.textContent = `$${parseFloat(expense.amount).toFixed(2)}`;
+                    
+                    const descriptionCell = document.createElement('td');
+                    descriptionCell.textContent = expense.description || '-';
+                    
+                    row.appendChild(dateCell);
+                    row.appendChild(categoryCell);
+                    row.appendChild(amountCell);
+                    row.appendChild(descriptionCell);
+                    
+                    recentExpenses.appendChild(row);
+                });
+            }
+        });
+    
+    // Create category pie chart
+    fetch('/api/category_totals')
+        .then(response => response.json())
+        .then(data => {
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            
+            const categories = Object.keys(data);
+            const amounts = Object.values(data);
+            
+            // Filter out zero amounts
+            const filteredCategories = [];
+            const filteredAmounts = [];
+            
+            for (let i = 0; i < categories.length; i++) {
+                if (amounts[i] > 0) {
+                    filteredCategories.push(categories[i]);
+                    filteredAmounts.push(amounts[i]);
+                }
+            }
+            
+            if (filteredAmounts.length === 0) {
+                document.getElementById('categoryChart').parentElement.innerHTML = 
+                    '<div class="text-center p-5"><p class="text-muted">No expense data available</p></div>';
+                return;
+            }
+            
+            // Chart colors - vibrant colors
+            const colorMap = {
+                'Food': '#4e73df',         // Blue
+                'Transportation': '#1cc88a', // Green
+                'Housing': '#36b9cc',      // Cyan/Teal
+                'Entertainment': '#f6c23e', // Yellow
+                'Utilities': '#e74a3b',    // Red
+                'Other': '#858796'         // Gray
+            };
+            
+            // Get colors based on category names
+            const chartColors = filteredCategories.map(category => colorMap[category] || '#000000');
+            
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: filteredCategories,
+                    datasets: [{
+                        data: filteredAmounts,
+                        backgroundColor: chartColors,
+                        hoverBackgroundColor: chartColors,
+                        hoverBorderColor: "rgba(234, 236, 244, 1)",
+                    }],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = Math.round((value / total) * 100);
+                                    return `${label}: $${value.toFixed(2)} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                },
+            });
+        });
+</script>
+{% endblock %} 

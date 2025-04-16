@@ -1,0 +1,318 @@
+{% extends 'base.html' %}
+
+{% block title %}Analytics - Expense Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="mb-4">Analytics</h1>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header bg-dark text-white">
+                <h5 class="card-title mb-0">Expense by Category</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="categoryPieChart" style="height: 300px;"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header bg-dark text-white">
+                <h5 class="card-title mb-0">Category Breakdown</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Category</th>
+                                <th class="text-end">Amount</th>
+                                <th class="text-end">Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoryBreakdown">
+                            {% for category, amount in category_totals.items() %}
+                                {% if amount > 0 %}
+                                <tr>
+                                    <td><span class="badge bg-{{ category|lower }}">{{ category }}</span></td>
+                                    <td class="text-end">${{ '%.2f'|format(amount) }}</td>
+                                    <td class="text-end">{{ '%.1f'|format((amount / total * 100) if total > 0 else 0) }}%</td>
+                                </tr>
+                                {% endif %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="3" class="text-center">No expense data available</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-dark">
+                            <tr>
+                                <td class="fw-bold">Total</td>
+                                <td class="text-end fw-bold">${{ '%.2f'|format(total) }}</td>
+                                <td class="text-end fw-bold">100%</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h5 class="card-title mb-0">Monthly Expenses</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="monthlyBarChart" style="height: 300px;"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h5 class="card-title mb-0">Expense Trend</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="trendLineChart" style="height: 300px;"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Chart colors - vibrant colors
+    const colorMap = {
+        'Food': '#4e73df',         // Blue
+        'Transportation': '#1cc88a', // Green
+        'Housing': '#36b9cc',      // Cyan/Teal
+        'Entertainment': '#f6c23e', // Yellow
+        'Utilities': '#e74a3b',    // Red
+        'Other': '#858796'         // Gray
+    };
+
+    // Category Pie Chart
+    fetch('/api/category_totals')
+        .then(response => response.json())
+        .then(data => {
+            const ctx = document.getElementById('categoryPieChart').getContext('2d');
+            
+            const categories = Object.keys(data);
+            const amounts = Object.values(data);
+            
+            // Filter out zero amounts
+            const filteredCategories = [];
+            const filteredAmounts = [];
+            
+            for (let i = 0; i < categories.length; i++) {
+                if (amounts[i] > 0) {
+                    filteredCategories.push(categories[i]);
+                    filteredAmounts.push(amounts[i]);
+                }
+            }
+            
+            if (filteredAmounts.length === 0) {
+                document.getElementById('categoryPieChart').parentElement.innerHTML = 
+                    '<div class="text-center p-5"><p class="text-muted">No expense data available</p></div>';
+                return;
+            }
+            
+            // Get colors based on category names
+            const chartColors = filteredCategories.map(category => colorMap[category] || '#000000');
+            
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: filteredCategories,
+                    datasets: [{
+                        data: filteredAmounts,
+                        backgroundColor: chartColors,
+                        hoverBackgroundColor: chartColors,
+                        hoverBorderColor: "rgba(234, 236, 244, 1)",
+                    }],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = Math.round((value / total) * 100);
+                                    return `${label}: $${value.toFixed(2)} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                },
+            });
+        });
+
+    // Monthly Bar Chart
+    fetch('/api/monthly_totals')
+        .then(response => response.json())
+        .then(data => {
+            const ctx = document.getElementById('monthlyBarChart').getContext('2d');
+            
+            const months = Object.keys(data);
+            const values = Object.values(data);
+            
+            if (months.length === 0) {
+                document.getElementById('monthlyBarChart').parentElement.innerHTML = 
+                    '<div class="text-center p-5"><p class="text-muted">No expense data available</p></div>';
+                return;
+            }
+            
+            // Format months to readable format (e.g., "Jan 2023")
+            const formattedMonths = months.map(month => {
+                const [year, monthNum] = month.split('-');
+                const date = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
+                return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            });
+            
+            // Create gradient for bar chart
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, '#4e73df');
+            gradient.addColorStop(1, '#36b9cc');
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: formattedMonths,
+                    datasets: [{
+                        label: 'Monthly Expenses',
+                        data: values,
+                        backgroundColor: gradient,
+                        borderColor: '#4e73df',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toFixed(2);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `$${context.parsed.y.toFixed(2)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+
+    // Expense Trend Line Chart
+    fetch('/api/expenses')
+        .then(response => response.json())
+        .then(expenses => {
+            const ctx = document.getElementById('trendLineChart').getContext('2d');
+            
+            if (expenses.length === 0) {
+                document.getElementById('trendLineChart').parentElement.innerHTML = 
+                    '<div class="text-center p-5"><p class="text-muted">No expense data available</p></div>';
+                return;
+            }
+            
+            // Sort expenses by date
+            expenses.sort((a, b) => new Date(a.date) - new Date(b.date));
+            
+            // Prepare data for cumulative line chart
+            const dates = expenses.map(expense => new Date(expense.date));
+            const amounts = expenses.map(expense => expense.amount);
+            
+            // Calculate cumulative expenses
+            const cumulativeAmounts = [];
+            let total = 0;
+            for (let amount of amounts) {
+                total += parseFloat(amount);
+                cumulativeAmounts.push(total);
+            }
+            
+            // Create gradient for line chart
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(78, 115, 223, 0.4)');
+            gradient.addColorStop(1, 'rgba(78, 115, 223, 0.0)');
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Cumulative Expenses',
+                        data: cumulativeAmounts,
+                        backgroundColor: gradient,
+                        borderColor: '#4e73df',
+                        pointRadius: 3,
+                        pointBackgroundColor: '#4e73df',
+                        pointBorderColor: '#4e73df',
+                        pointHoverRadius: 5,
+                        pointHoverBackgroundColor: '#4e73df',
+                        pointHoverBorderColor: '#4e73df',
+                        pointHitRadius: 10,
+                        pointBorderWidth: 2,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toFixed(2);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Total: $${context.parsed.y.toFixed(2)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+</script>
+{% endblock %} 
