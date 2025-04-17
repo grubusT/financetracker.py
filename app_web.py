@@ -18,6 +18,10 @@ def format_date(value, format='%Y-%m-%d'):
 def inject_now():
     return {'now': datetime}
 
+@app.template_filter('min_value')
+def min_value(a, b):
+    return min(a, b)
+
 class ExpenseTracker:
     def __init__(self):
         self.categories = ["Food", "Transportation", "Housing", "Entertainment", "Utilities", "Other"]
@@ -49,6 +53,18 @@ class ExpenseTracker:
         CREATE TABLE IF NOT EXISTS categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT UNIQUE NOT NULL
+        )
+        ''')
+        
+        # Create budgets table if it doesn't exist
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS budgets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category TEXT NOT NULL,
+            amount REAL NOT NULL,
+            period TEXT NOT NULL,
+            start_date TEXT NOT NULL,
+            FOREIGN KEY (category) REFERENCES categories(name)
         )
         ''')
         
@@ -138,6 +154,82 @@ class ExpenseTracker:
         conn.close()
         
         return monthly_expenses
+    
+    def set_budget(self, category, amount, period="monthly"):
+        if category not in self.categories:
+            return False
+        
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        
+        # Delete existing budget for this category and period
+        cursor.execute("DELETE FROM budgets WHERE category = ? AND period = ?", (category, period))
+        
+        # Insert new budget
+        cursor.execute(
+            "INSERT INTO budgets (category, amount, period, start_date) VALUES (?, ?, ?, ?)",
+            (category, float(amount), period, datetime.now().strftime("%Y-%m-%d"))
+        )
+        
+        conn.commit()
+        conn.close()
+        return True
+    
+    def get_budget(self, category, period="monthly"):
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            "SELECT amount FROM budgets WHERE category = ? AND period = ?",
+            (category, period)
+        )
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        return result['amount'] if result else 0
+    
+    def get_all_budgets(self, period="monthly"):
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            "SELECT category, amount FROM budgets WHERE period = ?",
+            (period,)
+        )
+        
+        budgets = {row['category']: row['amount'] for row in cursor.fetchall()}
+        conn.close()
+        
+        return budgets
+    
+    def get_budget_status(self, category, period="monthly"):
+        budget = self.get_budget(category, period)
+        spent = self.get_total(category)
+        
+        if budget == 0:
+            return {
+                'budget': 0,
+                'spent': spent,
+                'remaining': 0,
+                'percentage': 0
+            }
+        
+        remaining = budget - spent
+        percentage = (spent / budget) * 100
+        
+        return {
+            'budget': budget,
+            'spent': spent,
+            'remaining': remaining,
+            'percentage': percentage
+        }
+    
+    def get_all_budget_statuses(self, period="monthly"):
+        statuses = {}
+        for category in self.categories:
+            statuses[category] = self.get_budget_status(category, period)
+        return statuses
 
 
 # Create expense tracker instance
@@ -193,6 +285,30 @@ def analytics():
                           total=tracker.get_total(),
                           category_totals=tracker.get_category_totals(),
                           monthly_totals=tracker.get_monthly_totals())
+
+@app.route('/budgets')
+def budgets():
+    period = request.args.get('period', default='monthly')
+    budgets = tracker.get_all_budget_statuses(period)
+    return render_template('budgets.html',
+                         categories=tracker.categories,
+                         budgets=budgets,
+                         period=period)
+
+@app.route('/set_budget', methods=['POST'])
+def set_budget():
+    category = request.form.get('category')
+    amount = request.form.get('amount')
+    period = request.form.get('period', 'monthly')
+    
+    try:
+        float(amount)
+        if tracker.set_budget(category, amount, period):
+            return redirect(url_for('budgets', success=1))
+        else:
+            return "Invalid category", 400
+    except ValueError:
+        return "Invalid amount", 400
 
 @app.route('/api/expenses')
 def api_expenses():
